@@ -26,6 +26,7 @@ import requests
 from PIL import Image, ImageFilter
 from playwright.sync_api import TimeoutError as PlaywrightTimeoutError, Locator, ElementHandle 
 
+from .Captcha import Captcha
 from .api_service import *
 from .logger import get_logger
 from .logInWithCookies import logInWithCookies
@@ -47,9 +48,14 @@ class AutomaticEvaluate():
     CURRENT_AI_MODEL: str = None                   # AI模型的名称 | 使用AI模型生成评论文案
     
     def __init__(self) -> None:
-        self.__page, browser = logInWithCookies()
+        result = logInWithCookies()
+        if result == 0:
+            LOG.error("登录失败，程序退出！")
+            sys.exit()        
+        self.__page, browser = result
         self.__task_list: list[EvaluationTask] = []
         self.__start_time = time.time()
+        
         
     def exec_(self):
         self.__init_image_directory(IMAGE_DIRECTORY_PATH)
@@ -164,8 +170,10 @@ class AutomaticEvaluate():
                     case _:
                         try:
                             if self.__page.wait_for_selector('.verifyBtn', timeout=2000):
-                                LOG.warning("触发图灵测试, 停止运行！")
-                                sys.exit()
+                                LOG.warning("触发图灵测试，正在尝试绕过")#运行途中出现图灵测试，仅需完成一次，后续不会再触发，仅限一个号，并且重新加载Cookies后会再次触发
+                                captcha = Captcha(self.__page)  # 将当前页面传入
+                                captcha.solve()
+                                return self.__step_3(task)
                         except PlaywrightTimeoutError:
                             LOG.critical(f"商品 {task.productHtml_url} 页面发生变动，请issue联系作者！")
             else:

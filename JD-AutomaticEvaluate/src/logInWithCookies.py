@@ -77,8 +77,25 @@ def logInWithCookies(target_url: str = "https://www.jd.com/"):
     # 检查是否成功登录
     try:
         page.wait_for_url(target_url, timeout=10000)
-        LOG.success('使用已保存的 Cookies 登录')
+        # 检查登录状态
+        login_element = page.locator('#ttbar-login')
+        class_attr = login_element.get_attribute('class')
+        
+        if 'login' in class_attr:  # 先判断是否为未登录状态
+            LOG.error('登录失败：Cookies 已失效')
+            # 删除无效的 cookies 文件
+            if os.path.exists(COOKIES_SAVE_PATH):
+                os.remove(COOKIES_SAVE_PATH)
+                LOG.info('已删除无效的 Cookies 文件')
+            return 0
+        elif 'shortcut_userico3' in class_attr:
+            LOG.success('使用已保存的 Cookies 登录成功')
+            return page, browser
+        else:
+            LOG.warning('无法确定登录状态，请检查网页元素是否发生变化')
+            return 0
+        
     except PlaywrightTimeoutError:
         LOG.warning('模拟登录超时，请检查 Cookies 是否有效，或删除旧的 Cookies.json 文件重新运行！')
 
-    return page, browser  # 返回页面和浏览器实例
+    return 0  # 失败返回0
